@@ -23,7 +23,9 @@ const state = {
   editingReportId: null, // 수정 모드일 때 해당 보고서 ID
   currentView: 'list', // 'list' | 'write'
   currentFilterRound: 'all', // 'all' | '1' | '2' | '3' | '4'
-  pendingDeleteReportId: null // 삭제 대기 중인 보고서 ID
+  pendingDeleteReportId: null, // 삭제 대기 중인 보고서 ID
+  comments: [], // 모임 결과 보고서 댓글 목록 (public.ai_community_comments)
+  openCommentsMap: {} // 보고서별 댓글창 열림/닫힘 상태 기억
 };
 
 // DOM 요소 캐시
@@ -208,6 +210,20 @@ async function loadAllDataFromSupabase() {
     if (repError) throw repError;
     state.reports = reps || [];
 
+    // 3) 댓글 목록 조회 (public.ai_community_comments)
+    try {
+      const { data: comments, error: commentError } = await state.supabase
+        .from('ai_community_comments')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (!commentError && comments) {
+        state.comments = comments;
+      }
+    } catch (cErr) {
+      console.warn("댓글 로드 알림:", cErr);
+    }
+
     // UI 렌더링
     renderSidebarChannels();
     populateCommunitySelect();
@@ -359,6 +375,70 @@ function switchView(viewName) {
   }
 }
 
+// 문자열 HTML 이스케이프 및 줄바꿈 처리
+function escapeHtml(text) {
+  if (!text) return "";
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML.replace(/\n/g, "<br>");
+}
+
+// 상대 시간 포맷팅 (방금 전, N분 전, N시간 전, 날짜)
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffSec = Math.floor((now - d) / 1000);
+  if (diffSec < 60) return "방금 전";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}분 전`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}시간 전`;
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+// 최신 댓글만 재조회 후 피드 갱신
+async function reloadComments() {
+  if (!state.supabase) return;
+  try {
+    const { data: comments, error } = await state.supabase
+      .from('ai_community_comments')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (!error && comments) {
+      state.comments = comments;
+      renderPostFeed();
+    }
+  } catch (err) {
+    console.error("댓글 재조회 오류:", err);
+  }
+}
+
+// 댓글 삭제 (비밀번호 0218 검증)
+async function deleteComment(commentId, reportId) {
+  const pw = prompt("댓글을 삭제하려면 비밀번호(0218)를 입력해주세요:");
+  if (pw === null) return;
+  if (pw !== DELETE_PASSWORD) {
+    showToast("비밀번호가 일치하지 않습니다.", "warn");
+    return;
+  }
+
+  try {
+    const { error } = await state.supabase
+      .from('ai_community_comments')
+      .delete()
+      .eq('id', commentId);
+
+    if (error) throw error;
+
+    showToast("댓글이 삭제되었습니다.", "info");
+    state.openCommentsMap[reportId] = true;
+    await reloadComments();
+  } catch (err) {
+    console.error("댓글 삭제 실패:", err);
+    showToast("댓글 삭제 실패: " + err.message, "warn");
+  }
+}
+
 // 우측 게시글 목록 피드 렌더링
 function renderPostFeed() {
   if (!el.feedPostsWrap) return;
@@ -427,6 +507,34 @@ function renderPostFeed() {
       ? keywordsList.map(k => `<span class="tag-chip" style="font-size:0.75rem; padding:2px 8px; background:#f1f5f9; color:#475569; border-color:#e2e8f0;">#${k}</span>`).join(" ")
       : "";
 
+    // 해당 보고서의 댓글 목록
+    const reportComments = Array.isArray(state.comments)
+      ? state.comments.filter(c => c.report_id === rep.id)
+      : [];
+    const isCommentsOpen = state.openCommentsMap[rep.id] ?? (reportComments.length > 0);
+    const comm = state.communities.find(c => c.id === rep.community_id);
+    const defaultAuthor = comm ? comm.representative : "";
+
+    const commentsListHtml = reportComments.length === 0
+      ? `<div class="comment-empty-msg">아직 등록된 댓글이 없습니다. 첫 번째 소감이나 피드백을 남겨보세요! ✨</div>`
+      : reportComments.map(c => `
+          <div class="comment-item" id="comment-${c.id}">
+            <div class="comment-avatar">${(c.author_name || '익').trim().slice(0, 1)}</div>
+            <div class="comment-content-area">
+              <div class="comment-item-header">
+                <div class="comment-author-wrap">
+                  <span class="comment-author">${escapeHtml(c.author_name)}</span>
+                  <span class="comment-time">${formatRelativeTime(c.created_at)}</span>
+                </div>
+                <button type="button" class="btn-del-comment" data-del-comment="${c.id}" title="댓글 삭제">
+                  &times;
+                </button>
+              </div>
+              <div class="comment-text">${escapeHtml(c.content)}</div>
+            </div>
+          </div>
+        `).join("");
+
     card.innerHTML = `
       <div class="post-card-header">
         <div>
@@ -483,6 +591,42 @@ function renderPostFeed() {
           등록: ${rep.created_at ? new Date(rep.created_at).toLocaleDateString('ko-KR') : ''}
         </div>
       </div>
+
+      <!-- 댓글 영역 -->
+      <div class="post-comments-section" id="commentsSection-${rep.id}">
+        <div class="comments-toggle-header">
+          <button type="button" class="btn-toggle-comments" data-toggle-comments="${rep.id}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            댓글 <span class="comment-count-badge" id="commentBadge-${rep.id}">${reportComments.length}</span>
+          </button>
+          <span style="font-size:0.75rem; color:#94a3b8;">열린 소통 공간</span>
+        </div>
+
+        <div class="comments-container" id="commentsContainer-${rep.id}" style="${isCommentsOpen ? 'display: flex;' : 'display: none;'}">
+          <div class="comments-list" id="commentsList-${rep.id}">
+            ${commentsListHtml}
+          </div>
+
+          <form class="comment-write-box" data-form-report="${rep.id}">
+            <div class="comment-input-row">
+              <input type="text" class="comment-input-author" placeholder="작성자명 (필수)" maxlength="20" required value="${defaultAuthor}">
+              <span class="comment-tip-text">Ctrl+Enter로 등록 가능</span>
+            </div>
+            <div class="comment-textarea-row">
+              <textarea class="comment-input-content" placeholder="모임 결과에 대한 격려나 소감, 피드백을 남겨주세요..." rows="2" required></textarea>
+              <button type="submit" class="btn-submit-comment">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+                등록
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     `;
 
     // 수정 버튼 클릭 -> 폼으로 이동
@@ -493,6 +637,79 @@ function renderPostFeed() {
     // 삭제 버튼 클릭 -> 비밀번호 확인 모달 호출
     card.querySelector(`[data-del="${rep.id}"]`).addEventListener("click", () => {
       openDeleteModal(rep.id, rep.title);
+    });
+
+    // 댓글 영역 토글
+    const toggleBtn = card.querySelector(`[data-toggle-comments="${rep.id}"]`);
+    const commentsContainer = card.querySelector(`#commentsContainer-${rep.id}`);
+    if (toggleBtn && commentsContainer) {
+      toggleBtn.addEventListener("click", () => {
+        const isHidden = commentsContainer.style.display === "none";
+        commentsContainer.style.display = isHidden ? "flex" : "none";
+        state.openCommentsMap[rep.id] = isHidden;
+      });
+    }
+
+    // 댓글 작성 폼 제출
+    const commentForm = card.querySelector(`[data-form-report="${rep.id}"]`);
+    if (commentForm) {
+      const authorInput = commentForm.querySelector(".comment-input-author");
+      const contentInput = commentForm.querySelector(".comment-input-content");
+      const submitBtn = commentForm.querySelector(".btn-submit-comment");
+
+      // Ctrl + Enter 단축키
+      contentInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          commentForm.requestSubmit();
+        }
+      });
+
+      commentForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const author = authorInput.value.trim();
+        const content = contentInput.value.trim();
+        if (!author || !content) {
+          showToast("작성자와 내용을 모두 입력해주세요.", "warn");
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "등록중...";
+
+        try {
+          const { error } = await state.supabase
+            .from('ai_community_comments')
+            .insert([{
+              report_id: rep.id,
+              author_name: author,
+              content: content
+            }]);
+
+          if (error) throw error;
+
+          contentInput.value = "";
+          showToast("댓글이 등록되었습니다!", "success");
+          state.openCommentsMap[rep.id] = true;
+
+          // 댓글만 최신 재조회 후 피드 갱신
+          await reloadComments();
+        } catch (cErr) {
+          console.error("댓글 등록 실패:", cErr);
+          showToast("댓글 등록 실패: " + cErr.message, "warn");
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> 등록`;
+        }
+      });
+    }
+
+    // 댓글 삭제 버튼 클릭
+    card.querySelectorAll(`[data-del-comment]`).forEach(btn => {
+      btn.addEventListener("click", () => {
+        const commentId = btn.dataset.delComment;
+        deleteComment(commentId, rep.id);
+      });
     });
 
     el.feedPostsWrap.appendChild(card);

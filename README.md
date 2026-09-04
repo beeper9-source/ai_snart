@@ -53,7 +53,9 @@
 - **테이블 구조**:
   1. `public.ai_communities`: 커뮤니티 번호, 명칭, 단체구분, 대표자, 프로젝트명, 최소필수의무(3회)
   2. `public.ai_community_reports`: 보고서 UUID, 커뮤니티ID, 회차(1~3), 제목, 일시, 장소, 참석자(JSONB), 본문(HTML), 키워드(JSONB), 사진(JSONB)
-  3. `public.ai_community_drafts`: 임시저장 데이터
+  3. `public.ai_community_drafts`: 커뮤니티별 작성 중 임시저장 데이터
+  4. `public.ai_community_comments`: 보고서 댓글 (UUID, 보고서ID 외래키 ON DELETE CASCADE, 작성자명, 댓글 본문, 작성일시)
+  5. `storage.buckets ('ai-community-photos')`: 첨부 사진 클라우드 스토리지
 
 ---
 
