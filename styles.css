@@ -59,7 +59,32 @@ body {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+}
+
+.header-org-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.header-org-link:hover {
+  opacity: 0.85;
+}
+
+.header-logo-img {
+  height: 35px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.header-v-divider {
+  width: 1px;
+  height: 26px;
+  background-color: #e2e8f0;
+  margin: 0 4px;
 }
 
 .brand-logo {
@@ -2106,7 +2131,20 @@ select.form-control {
 
 @media (max-width: 640px) {
   .app-header {
-    padding: 0 16px;
+    padding: 0 14px;
+  }
+  .header-logo-img {
+    height: 25px;
+  }
+  .header-v-divider {
+    height: 20px;
+    margin: 0 2px;
+  }
+  .brand-logo {
+    display: none;
+  }
+  .brand-sub {
+    display: none;
   }
   .app-container {
     padding: 16px;
