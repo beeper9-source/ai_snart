@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 AI 커뮤니티 활동지원 - 모임 결과 보고서</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- 상단 네비게이션 헤더 -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand-logo">
+        <!-- AI 브레인/네트워크 아이콘 SVG -->
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.58-3.25 3.93L12 10.5l-.75-.57A4 4 0 0 1 8 6a4 4 0 0 1 4-4z"/>
+          <path d="M6 10a4 4 0 0 0-4 4c0 1.95 1.4 3.58 3.25 3.93l.75.57.75-.57A4 4 0 0 0 8 14a4 4 0 0 0-2-4z"/>
+          <path d="M18 10a4 4 0 0 0-2 4c0 1.95 1.4 3.58 3.25 3.93l.75.57.75-.57A4 4 0 0 0 22 14a4 4 0 0 0-4-4z"/>
+          <path d="M12 14a4 4 0 0 1 4 4c0 1.95-1.4 3.58-3.25 3.93l-.75.57-.75-.57A4 4 0 0 1 8 18a4 4 0 0 1 4-4z"/>
+          <line x1="12" y1="10.5" x2="12" y2="14"/>
+          <line x1="7.5" y1="13.5" x2="10.5" y2="15.5"/>
+          <line x1="16.5" y1="13.5" x2="13.5" y2="15.5"/>
+        </svg>
+      </div>
+      <div class="brand-info">
+        <span class="brand-title">AI 연구 커뮤니티</span>
+        <span class="brand-sub">함께 연구하고 성장하는 2026 AI 커뮤니티 지원사업</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="supabase-badge" id="supabaseStatusBadge" title="모든 데이터는 Supabase 클라우드 데이터베이스에 실시간으로 관리됩니다">
+        <div class="supabase-dot" id="supabaseStatusDot"></div>
+        <span id="supabaseStatusText">Supabase 실시간 연동</span>
+      </div>
+
+      <button type="button" class="header-tool-btn" id="btnDemoFill" title="테스트용 예시 내용을 자동으로 입력합니다">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+        예시 데이터 채우기
+      </button>
+
+      <button type="button" class="header-tool-btn" id="btnViewArchive" title="제출된 보고서 목록 보기">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        보고서 보관함 (<span id="submittedCount">0</span>)
+      </button>
+
+      <button type="button" class="icon-btn" title="검색">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </button>
+
+      <button type="button" class="icon-btn" title="알림">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span class="icon-badge">3</span>
+      </button>
+
+      <div class="user-profile-badge">
+        <div class="user-avatar">홍</div>
+        <span class="user-name">홍길동 님</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 레이아웃 컨테이너 -->
+  <div class="app-container">
+
+    <!-- 좌측: 연구 분과(커뮤니티) 채널 사이드바 (10개 선정 대상팀) -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title-wrap">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span>커뮤니티 분과 채널</span>
+          <span class="count-badge">10</span>
+        </div>
+      </div>
+
+      <!-- 최소 3회 의무 진행 안내 미니 박스 -->
+      <div class="sidebar-rule-box">
+        <div class="sidebar-rule-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          모임 필수 요건 : 최소 3회 진행
+        </div>
+        <div class="sidebar-rule-desc">
+          각 커뮤니티는 사업 기간 동안 최소 3번의 정기 모임 및 결과 보고서 제출이 필수입니다.
+        </div>
+      </div>
+
+      <!-- 10개 커뮤니티 채널 카드 리스트 (JS로 동적 렌더링) -->
+      <div class="channel-list" id="channelList">
+        <!-- JS 렌더링 영역 -->
+      </div>
+    </aside>
+
+    <!-- 우측: 모임 결과 보고서 작성 폼 -->
+    <main class="main-content">
+      <div class="form-card">
+
+        <!-- 폼 상단 헤더 및 액션 버튼 -->
+        <div class="form-header">
+          <div class="form-title-wrap">
+            <h1 id="formMainTitle">모임 결과 보고서 작성</h1>
+            <p id="formSubTitle">연구 모임의 주요 내용과 결과를 공유해주세요.</p>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-outline" id="btnCancelEdit" style="display: none; color: #dc2626; border-color: #fca5a5; background: #fff5f5;">수정 취소</button>
+            <button type="button" class="btn btn-outline" id="btnDraftSave">임시저장</button>
+            <button type="button" class="btn btn-outline" id="btnPreview">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              미리보기
+            </button>
+            <button type="button" class="btn btn-primary" id="btnPublish">게시하기</button>
+          </div>
+        </div>
+
+        <!-- 최소 3회 모임 의무 요건 & 실시간 진행도 배너 -->
+        <div class="requirement-banner" id="requirementBanner">
+          <div class="banner-left">
+            <span class="banner-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              의무 요건
+            </span>
+            <div class="banner-info">
+              <div class="banner-title" id="bannerCommunityName">커뮤니티별 최소 3회 모임 필수 이행</div>
+              <div class="banner-desc" id="bannerCommunityDesc">지원 대상 10개 팀은 최소 3회 이상 정기 모임을 진행해야 결과 평가가 완료됩니다.</div>
+            </div>
+          </div>
+          <!-- 실시간 1, 2, 3회차 스테퍼 -->
+          <div class="banner-stepper" id="bannerStepper">
+            <div class="step-item active" id="step1">
+              <div class="step-circle">1</div>
+              <span>1회차</span>
+            </div>
+            <div class="step-divider" id="stepDiv1"></div>
+            <div class="step-item" id="step2">
+              <div class="step-circle">2</div>
+              <span>2회차</span>
+            </div>
+            <div class="step-divider" id="stepDiv2"></div>
+            <div class="step-item" id="step3">
+              <div class="step-circle">3</div>
+              <span>3회차 (필수완료)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 보고서 입력 양식 폼 -->
+        <form class="report-form" id="reportForm" onsubmit="return false;">
+          
+          <!-- Row 1: 제목 & 모임 일시 -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="reportTitle">제목 <span class="req-star">*</span></label>
+              <input type="text" id="reportTitle" class="form-control" placeholder="모임 제목을 입력해주세요" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="meetingDate">모임 일시 <span class="req-star">*</span></label>
+              <div class="input-with-icon">
+                <span class="input-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                </span>
+                <input type="datetime-local" id="meetingDate" class="form-control" required>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 2: 연구 분과(커뮤니티) & 모임 회차 (최소 3회 선택) -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="communitySelect">연구 분과 (커뮤니티) <span class="req-star">*</span></label>
+              <select id="communitySelect" class="form-control" required>
+                <option value="">연구 분과를 선택해주세요</option>
+                <!-- 10개 커뮤니티 옵션 JS 주입 -->
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">모임 회차 (최소 3회 의무) <span class="req-star">*</span></label>
+              <div class="round-selector-group" id="roundSelectorGroup">
+                <button type="button" class="round-pill active" data-round="1">
+                  <span>1회차</span>
+                  <span class="req-tag">필수</span>
+                </button>
+                <button type="button" class="round-pill" data-round="2">
+                  <span>2회차</span>
+                  <span class="req-tag">필수</span>
+                </button>
+                <button type="button" class="round-pill" data-round="3">
+                  <span>3회차</span>
+                  <span class="req-tag">의무달성</span>
+                </button>
+                <button type="button" class="round-pill" data-round="4">
+                  <span>4회차+</span>
+                  <span class="req-tag">자율</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 3: 모임 장소 -->
+          <div class="form-row">
+            <div class="form-group full-width">
+              <label class="form-label" for="meetingLocation">모임 장소</label>
+              <input type="text" id="meetingLocation" class="form-control" placeholder="모임 장소를 입력해주세요 (예: 판교 스타트업 캠퍼스, 비대면 줌 회의 등)">
+            </div>
+          </div>
+
+          <!-- Row 4: 참석자 -->
+          <div class="form-group full-width">
+            <label class="form-label" for="attendeeInput">참석자</label>
+            <div class="attendees-input-row">
+              <input type="text" id="attendeeInput" class="form-control" placeholder="참석자 이름을 입력하거나 추가해주세요 (예: 최○미, 김○경)">
+              <button type="button" class="btn-add-attendee" id="btnAddAttendee">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                참석자 추가
+              </button>
+            </div>
+            <div class="chip-container" id="attendeeChips">
+              <!-- 참석자 태그 칩 동적 추가 -->
+            </div>
+          </div>
+
+          <!-- Row 5: 모임 내용 및 결과 (리치 텍스트 에디터) -->
+          <div class="form-group full-width">
+            <label class="form-label">모임 내용 및 결과 <span class="req-star">*</span></label>
+            <div class="editor-wrapper">
+              <!-- 서식 툴바 -->
+              <div class="editor-toolbar">
+                <select class="toolbar-select" id="formatBlockSelect" title="문단 스타일">
+                  <option value="p">본문</option>
+                  <option value="h3">소제목 (H3)</option>
+                  <option value="h2">중제목 (H2)</option>
+                </select>
+
+                <div class="toolbar-divider"></div>
+
+                <button type="button" class="toolbar-btn" data-cmd="bold" title="굵게 (Ctrl+B)"><b>B</b></button>
+                <button type="button" class="toolbar-btn" data-cmd="italic" title="기울임 (Ctrl+I)"><i>I</i></button>
+                <button type="button" class="toolbar-btn" data-cmd="underline" title="밑줄 (Ctrl+U)"><u>U</u></button>
+                <button type="button" class="toolbar-btn" data-cmd="strikeThrough" title="취소선"><s>S</s></button>
+
+                <div class="toolbar-divider"></div>
+
+                <button type="button" class="toolbar-btn" data-cmd="insertUnorderedList" title="글머리 기호">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="8" y1="6" x2="21" y2="6"/>
+                    <line x1="8" y1="12" x2="21" y2="12"/>
+                    <line x1="8" y1="18" x2="21" y2="18"/>
+                    <line x1="3" y1="6" x2="3.01" y2="6"/>
+                    <line x1="3" y1="12" x2="3.01" y2="12"/>
+                    <line x1="3" y1="18" x2="3.01" y2="18"/>
+                  </svg>
+                </button>
+                <button type="button" class="toolbar-btn" data-cmd="insertOrderedList" title="번호 매기기">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="10" y1="6" x2="21" y2="6"/>
+                    <line x1="10" y1="12" x2="21" y2="12"/>
+                    <line x1="10" y1="18" x2="21" y2="18"/>
+                    <path d="M4 6h1v4"/>
+                    <path d="M4 10h2"/>
+                    <path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/>
+                  </svg>
+                </button>
+                <button type="button" class="toolbar-btn" data-cmd="formatBlock" data-val="blockquote" title="인용구">
+                  <b>&ldquo;</b>
+                </button>
+                <button type="button" class="toolbar-btn" id="btnInsertLink" title="링크 삽입">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                  </svg>
+                </button>
+
+                <div class="toolbar-divider"></div>
+
+                <button type="button" class="toolbar-btn" data-cmd="undo" title="실행 취소">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 7v6h6"/>
+                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+                  </svg>
+                </button>
+                <button type="button" class="toolbar-btn" data-cmd="redo" title="다시 실행">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 7v6h-6"/>
+                    <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- 편집 본문 영역 -->
+              <div class="editor-content" id="editorContent" contenteditable="true" data-placeholder="모임의 주요 내용, 논의 사항, 결과, 다음 계획 등을 자세히 작성해주세요."></div>
+
+              <!-- 글자 수 카운터 -->
+              <div class="editor-footer">
+                <span class="char-counter" id="charCounter">0 / 3000</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 6: 사진 첨부 & 첨부된 파일 목록 -->
+          <div class="form-group full-width">
+            <div class="attachment-grid">
+              <!-- 좌측: 드래그 앤 드롭 영역 -->
+              <div>
+                <label class="form-label">사진 첨부</label>
+                <div class="upload-dropzone" id="uploadDropzone">
+                  <input type="file" id="fileInput" multiple accept="image/*" style="display: none;">
+                  <div class="dropzone-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="16 16 12 12 8 16"/>
+                      <line x1="12" y1="12" x2="12" y2="21"/>
+                      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                      <polyline points="16 16 12 12 8 16"/>
+                    </svg>
+                  </div>
+                  <div class="dropzone-main-text">사진을 드래그하여 첨부하거나, 클릭하여 파일을 선택하세요.</div>
+                  <div class="dropzone-sub-text">JPG, PNG, GIF 파일 (최대 10MB)</div>
+                  <button type="button" class="btn-file-select" id="btnSelectFile">파일 선택</button>
+                </div>
+              </div>
+
+              <!-- 우측: 첨부된 파일 목록 박스 -->
+              <div>
+                <label class="form-label">첨부된 파일 (<span id="attachedCount">0</span>)</label>
+                <div class="attached-box" id="attachedBox">
+                  <div class="empty-attached" id="emptyAttachedNotice">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <p>첨부된 파일이 없습니다.</p>
+                  </div>
+                  <div class="attached-list" id="attachedFileList"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 7: 관련 키워드 -->
+          <div class="form-group full-width">
+            <label class="form-label" for="keywordInput">관련 키워드</label>
+            <div class="keyword-input-wrapper">
+              <input type="text" id="keywordInput" class="form-control" placeholder="키워드를 입력하고 Enter를 눌러 추가하세요">
+              <span class="keyword-counter" id="keywordCounter">0 / 5</span>
+            </div>
+            <div class="chip-container" id="keywordChips" style="margin-top: 8px;">
+              <!-- 키워드 태그 칩 동적 추가 -->
+            </div>
+          </div>
+
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- 보고서 미리보기 모달 -->
+  <div class="modal-overlay" id="previewModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 class="modal-title">모임 결과 보고서 미리보기</h2>
+        <button type="button" class="modal-close-btn" id="btnClosePreview">&times;</button>
+      </div>
+      <div class="modal-body" id="previewModalBody">
+        <!-- 동적 렌더링 -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="btnClosePreviewFooter">닫기</button>
+        <button type="button" class="btn btn-primary" id="btnPublishFromPreview">이대로 게시하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 제출된 보고서 보관함 모달 -->
+  <div class="modal-overlay" id="archiveModal">
+    <div class="modal-box" style="max-width: 880px;">
+      <div class="modal-header">
+        <h2 class="modal-title">제출된 커뮤니티 모임 결과 보고서 목록</h2>
+        <button type="button" class="modal-close-btn" id="btnCloseArchive">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="report-archive-list" id="archiveListContainer">
+          <!-- 동적 렌더링 -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="btnCloseArchiveFooter">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 사진 원본 보기 라이트박스 모달 -->
+  <div class="lightbox-modal" id="lightboxModal">
+    <div class="lightbox-content">
+      <button type="button" class="lightbox-close-btn" id="btnCloseLightbox">&times;</button>
+      <img src="" alt="확대 이미지" class="lightbox-img" id="lightboxImg">
+      <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+  </div>
+
+  <!-- 토스트 알림 컨테이너 -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Supabase JS SDK & 설정 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
