@@ -6,6 +6,9 @@
  * - public.ai_community_drafts (임시 저장)
  */
 
+// 삭제 인증 비밀번호
+const DELETE_PASSWORD = "0218";
+
 // 애플리케이션 전역 상태
 const state = {
   supabase: null,
@@ -19,7 +22,8 @@ const state = {
   isLoading: false,
   editingReportId: null, // 수정 모드일 때 해당 보고서 ID
   currentView: 'list', // 'list' | 'write'
-  currentFilterRound: 'all' // 'all' | '1' | '2' | '3' | '4'
+  currentFilterRound: 'all', // 'all' | '1' | '2' | '3' | '4'
+  pendingDeleteReportId: null // 삭제 대기 중인 보고서 ID
 };
 
 // DOM 요소 캐시
@@ -102,7 +106,16 @@ const el = {
   btnInsertLink: document.getElementById("btnInsertLink"),
   supabaseStatusBadge: document.getElementById("supabaseStatusBadge"),
   supabaseStatusDot: document.getElementById("supabaseStatusDot"),
-  supabaseStatusText: document.getElementById("supabaseStatusText")
+  supabaseStatusText: document.getElementById("supabaseStatusText"),
+
+  // 삭제 확인 모달
+  deleteConfirmModal: document.getElementById("deleteConfirmModal"),
+  deleteTargetTitle: document.getElementById("deleteTargetTitle"),
+  deletePasswordInput: document.getElementById("deletePasswordInput"),
+  deletePasswordError: document.getElementById("deletePasswordError"),
+  btnCloseDeleteModal: document.getElementById("btnCloseDeleteModal"),
+  btnCancelDelete: document.getElementById("btnCancelDelete"),
+  btnConfirmDelete: document.getElementById("btnConfirmDelete")
 };
 
 // SVG 아이콘 생성 함수
@@ -477,22 +490,9 @@ function renderPostFeed() {
       startEditReport(rep.id);
     });
 
-    // 삭제 버튼 클릭 -> Supabase 삭제
-    card.querySelector(`[data-del="${rep.id}"]`).addEventListener("click", async () => {
-      if (confirm(`'${rep.title}' 보고서를 Supabase에서 영구 삭제하시겠습니까?`)) {
-        try {
-          const { error } = await state.supabase
-            .from('ai_community_reports')
-            .delete()
-            .eq('id', rep.id);
-
-          if (error) throw error;
-          showToast("보고서가 Supabase에서 삭제되었습니다.", "info");
-          await loadAllDataFromSupabase();
-        } catch (err) {
-          showToast("삭제 실패: " + err.message, "warn");
-        }
-      }
+    // 삭제 버튼 클릭 -> 비밀번호 확인 모달 호출
+    card.querySelector(`[data-del="${rep.id}"]`).addEventListener("click", () => {
+      openDeleteModal(rep.id, rep.title);
     });
 
     el.feedPostsWrap.appendChild(card);
@@ -1220,27 +1220,115 @@ function renderArchiveList() {
       startEditReport(rep.id);
     });
 
-    // 삭제 버튼 클릭
-    card.querySelector(`[data-del="${rep.id}"]`).addEventListener("click", async () => {
-      if (confirm(`'${rep.title}' 보고서를 Supabase에서 영구 삭제하시겠습니까?`)) {
-        try {
-          const { error } = await state.supabase
-            .from('ai_community_reports')
-            .delete()
-            .eq('id', rep.id);
-
-          if (error) throw error;
-          showToast("보고서가 Supabase에서 삭제되었습니다.", "info");
-          await loadAllDataFromSupabase();
-          renderArchiveList();
-        } catch (err) {
-          showToast("삭제 실패: " + err.message, "warn");
-        }
-      }
+    // 삭제 버튼 클릭 -> 비밀번호 확인 모달 호출
+    card.querySelector(`[data-del="${rep.id}"]`).addEventListener("click", () => {
+      openDeleteModal(rep.id, rep.title);
     });
 
     el.archiveListContainer.appendChild(card);
   });
+}
+
+// 15-1. 컨텐츠 삭제 비밀번호 확인 모달 (비밀번호: 0218)
+function openDeleteModal(reportId, reportTitle) {
+  state.pendingDeleteReportId = reportId;
+  if (el.deleteTargetTitle) {
+    el.deleteTargetTitle.textContent = `"${reportTitle || '선택한 보고서'}"`;
+  }
+  if (el.deletePasswordInput) {
+    el.deletePasswordInput.value = "";
+    el.deletePasswordInput.style.borderColor = "#cbd5e1";
+  }
+  if (el.deletePasswordError) {
+    el.deletePasswordError.style.display = "none";
+  }
+  if (el.deleteConfirmModal) {
+    el.deleteConfirmModal.classList.add("open");
+    setTimeout(() => {
+      if (el.deletePasswordInput) el.deletePasswordInput.focus();
+    }, 120);
+  }
+}
+
+function closeDeleteModal() {
+  state.pendingDeleteReportId = null;
+  if (el.deleteConfirmModal) {
+    el.deleteConfirmModal.classList.remove("open");
+  }
+  if (el.deletePasswordInput) {
+    el.deletePasswordInput.value = "";
+  }
+  if (el.deletePasswordError) {
+    el.deletePasswordError.style.display = "none";
+  }
+}
+
+async function executeReportDelete() {
+  if (!state.pendingDeleteReportId) return;
+
+  const enteredPw = el.deletePasswordInput ? el.deletePasswordInput.value.trim() : "";
+  if (enteredPw !== DELETE_PASSWORD) {
+    if (el.deletePasswordError) {
+      el.deletePasswordError.style.display = "block";
+      el.deletePasswordError.textContent = "✕ 비밀번호가 올바르지 않습니다. 다시 입력해주세요.";
+    }
+    if (el.deletePasswordInput) {
+      el.deletePasswordInput.style.borderColor = "#dc2626";
+      el.deletePasswordInput.focus();
+      el.deletePasswordInput.select();
+    }
+    showToast("삭제 비밀번호가 일치하지 않습니다.", "warn");
+    return;
+  }
+
+  const reportId = state.pendingDeleteReportId;
+  const rep = state.reports.find(r => r.id === reportId);
+  const repTitle = rep ? rep.title : "보고서";
+
+  try {
+    if (el.btnConfirmDelete) {
+      el.btnConfirmDelete.disabled = true;
+      el.btnConfirmDelete.textContent = "삭제 처리 중...";
+    }
+
+    // 1. Supabase Storage 파일 정리
+    if (rep && Array.isArray(rep.files)) {
+      for (const file of rep.files) {
+        if (file.storagePath) {
+          try {
+            await state.supabase.storage.from('ai-community-photos').remove([file.storagePath]);
+          } catch (storageErr) {
+            console.warn("Storage delete warn:", storageErr);
+          }
+        }
+      }
+    }
+
+    // 2. Supabase DB 레코드 삭제
+    const { error } = await state.supabase
+      .from('ai_community_reports')
+      .delete()
+      .eq('id', reportId);
+
+    if (error) throw error;
+
+    closeDeleteModal();
+    showToast(`'${repTitle}' 보고서가 Supabase에서 안전하게 삭제되었습니다.`, "info");
+    await loadAllDataFromSupabase();
+
+    // 보관함 모달이 열려있으면 목록 갱신
+    if (el.archiveModal && el.archiveModal.classList.contains("open")) {
+      renderArchiveList();
+    }
+  } catch (err) {
+    console.error("[Delete Error]", err);
+    showToast("삭제 실패: " + err.message, "warn");
+  } finally {
+    if (el.btnConfirmDelete) {
+      el.btnConfirmDelete.disabled = false;
+      el.btnConfirmDelete.textContent = "삭제 확인";
+    }
+  }
 }
 
 // 16. 예시 데이터 자동 입력 (데모 기능)
@@ -1434,6 +1522,28 @@ function setupEventListeners() {
     });
   }
 
+  // 컨텐츠 삭제 비밀번호 확인 모달 이벤트
+  if (el.btnCloseDeleteModal) el.btnCloseDeleteModal.addEventListener("click", closeDeleteModal);
+  if (el.btnCancelDelete) el.btnCancelDelete.addEventListener("click", closeDeleteModal);
+  if (el.btnConfirmDelete) el.btnConfirmDelete.addEventListener("click", executeReportDelete);
+  if (el.deletePasswordInput) {
+    el.deletePasswordInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        executeReportDelete();
+      }
+    });
+    el.deletePasswordInput.addEventListener("input", () => {
+      if (el.deletePasswordError) el.deletePasswordError.style.display = "none";
+      if (el.deletePasswordInput) el.deletePasswordInput.style.borderColor = "#cbd5e1";
+    });
+  }
+  if (el.deleteConfirmModal) {
+    el.deleteConfirmModal.addEventListener("click", (e) => {
+      if (e.target === el.deleteConfirmModal) closeDeleteModal();
+    });
+  }
+
   // 사진 확대 라이트박스 닫기
   const btnCloseLightbox = document.getElementById("btnCloseLightbox");
   if (btnCloseLightbox) btnCloseLightbox.addEventListener("click", closeLightbox);
@@ -1444,13 +1554,18 @@ function setupEventListeners() {
     });
   }
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeLightbox();
+    if (e.key === "Escape") {
+      closeLightbox();
+      closeDeleteModal();
+    }
   });
 }
 
 // 전역 바인딩 (인라인 onclick 지원)
 window.openLightbox = openLightbox;
 window.closeLightbox = closeLightbox;
+window.openDeleteModal = openDeleteModal;
+window.closeDeleteModal = closeDeleteModal;
 
 // 토스트 알림 함수
 function showToast(message, type = "info") {

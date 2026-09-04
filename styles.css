@@ -1895,3 +1895,15 @@ select.form-control {
     flex-wrap: wrap;
   }
 }
+
+/* Delete Password Confirmation Modal */
+#deletePasswordInput:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
+}
+
+#btnConfirmDelete:hover {
+  background-color: #b91c1c !important;
+  border-color: #b91c1c !important;
+}
+

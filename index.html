@@ -535,6 +535,45 @@
     </div>
   </div>
 
+  <!-- 컨텐츠 삭제 비밀번호 확인 모달 -->
+  <div class="modal-overlay" id="deleteConfirmModal">
+    <div class="modal-box" style="max-width: 460px;">
+      <div class="modal-header">
+        <h2 class="modal-title" style="display: flex; align-items: center; gap: 8px; color: #dc2626;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          보고서 영구 삭제 확인
+        </h2>
+        <button type="button" class="modal-close-btn" id="btnCloseDeleteModal">&times;</button>
+      </div>
+      <div class="modal-body" style="gap: 16px;">
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 14px;">
+          <p id="deleteTargetTitle" style="font-weight: 700; color: #991b1b; font-size: 0.9375rem; margin-bottom: 4px; word-break: break-all;"></p>
+          <p style="font-size: 0.8125rem; color: #b91c1c; margin: 0;">
+            ⚠️ 삭제된 보고서와 첨부 사진은 Supabase에서 영구적으로 삭제되며 복구할 수 없습니다.
+          </p>
+        </div>
+
+        <div>
+          <label for="deletePasswordInput" style="display: block; font-size: 0.875rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+            안전 삭제 비밀번호 입력
+          </label>
+          <input type="password" id="deletePasswordInput" placeholder="비밀번호 4자리 입력" maxlength="10" autocomplete="off" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 1rem; box-sizing: border-box; outline: none; transition: border-color 0.15s;">
+          <div id="deletePasswordError" style="display: none; color: #dc2626; font-size: 0.8125rem; font-weight: 600; margin-top: 6px;">
+            ✕ 비밀번호가 올바르지 않습니다. 다시 입력해주세요.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="btnCancelDelete">취소</button>
+        <button type="button" class="btn" id="btnConfirmDelete" style="background: #dc2626; color: #ffffff; border-color: #dc2626;">삭제 확인</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 사진 원본 보기 라이트박스 모달 -->
   <div class="lightbox-modal" id="lightboxModal">
     <div class="lightbox-content">
