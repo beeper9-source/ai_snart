@@ -116,32 +116,41 @@
       </div>
     </aside>
 
-    <!-- 우측: 모임 결과 보고서 작성 폼 -->
+    <!-- 우측: 모임 결과 보고서 목록 (기본) 및 작성 폼 -->
     <main class="main-content">
-      <div class="form-card">
 
-        <!-- 폼 상단 헤더 및 액션 버튼 -->
-        <div class="form-header">
-          <div class="form-title-wrap">
-            <h1 id="formMainTitle">모임 결과 보고서 작성</h1>
-            <p id="formSubTitle">연구 모임의 주요 내용과 결과를 공유해주세요.</p>
+      <!-- 선택된 커뮤니티 상단 헤더 카드 -->
+      <div class="community-header-card" id="communityHeaderCard">
+        <div class="comm-header-top">
+          <div class="comm-profile-wrap">
+            <div class="comm-avatar-large" id="commHeaderAvatar">
+              <!-- 커뮤니티 아이콘 동적 주입 -->
+            </div>
+            <div class="comm-meta-details">
+              <h1>
+                <span id="commHeaderTitle">밑줄 긋는 사이</span>
+                <span class="comm-type-pill" id="commHeaderType">활동</span>
+              </h1>
+              <p class="comm-project-desc" id="commHeaderProject">어른을 위한 AI 동화 오디오북 창작 (대표자: 최○미)</p>
+            </div>
           </div>
-          <div class="form-actions">
-            <button type="button" class="btn btn-outline" id="btnCancelEdit" style="display: none; color: #dc2626; border-color: #fca5a5; background: #fff5f5;">수정 취소</button>
-            <button type="button" class="btn btn-outline" id="btnDraftSave">임시저장</button>
-            <button type="button" class="btn btn-outline" id="btnPreview">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-              미리보기
+
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <button type="button" class="btn btn-outline" id="btnDemoFillHeader" title="테스트용 예시 내용을 자동 입력합니다">
+              ✨ 예시 데이터 채우기
             </button>
-            <button type="button" class="btn btn-primary" id="btnPublish">게시하기</button>
+            <button type="button" class="btn-new-report" id="btnOpenWrite">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              새 보고서 작성
+            </button>
           </div>
         </div>
 
         <!-- 최소 3회 모임 의무 요건 & 실시간 진행도 배너 -->
-        <div class="requirement-banner" id="requirementBanner">
+        <div class="requirement-banner" id="requirementBanner" style="margin-bottom: 0;">
           <div class="banner-left">
             <span class="banner-badge">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -172,9 +181,109 @@
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- 보고서 입력 양식 폼 -->
-        <form class="report-form" id="reportForm" onsubmit="return false;">
+      <!-- 뷰 탭 바 (모임 보고서 목록 vs 새 보고서 작성) -->
+      <div class="view-tabs-bar">
+        <div class="view-tabs-group">
+          <button type="button" class="view-tab-btn active" id="tabBtnList">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/>
+              <line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="3.01" y2="6"/>
+              <line x1="3" y1="12" x2="3.01" y2="12"/>
+              <line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            모임 보고서 목록
+            <span class="tab-badge" id="tabReportCount">0</span>
+          </button>
+          <button type="button" class="view-tab-btn" id="tabBtnWrite">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            보고서 작성
+          </button>
+        </div>
+
+        <div style="font-size:0.8125rem; color:#64748b;">
+          * Supabase 클라우드 실시간 동기화 중
+        </div>
+      </div>
+
+      <!-- 1. [기본 화면] 게시글(모임 결과 보고서) 피드 목록 뷰 -->
+      <div id="viewPostList" class="post-list-container">
+        <!-- 회차 필터 바 -->
+        <div class="feed-filter-bar">
+          <div class="round-filter-group" id="roundFilterGroup">
+            <span style="font-size:0.8125rem; font-weight:700; color:#334155; margin-right:4px;">회차 필터:</span>
+            <button type="button" class="round-filter-btn active" data-filter="all">전체 회차</button>
+            <button type="button" class="round-filter-btn" data-filter="1">1회차</button>
+            <button type="button" class="round-filter-btn" data-filter="2">2회차</button>
+            <button type="button" class="round-filter-btn" data-filter="3">3회차 (의무)</button>
+            <button type="button" class="round-filter-btn" data-filter="4">4회차+</button>
+          </div>
+          <div style="font-size:0.8125rem; color:#64748b;">
+            총 <b id="filteredPostCount" style="color:#2563eb;">0</b>건의 보고서
+          </div>
+        </div>
+
+        <!-- 피드 리스트 동적 주입 -->
+        <div id="feedPostsWrap" style="display:flex; flex-direction:column; gap:16px;"></div>
+
+        <!-- 빈 상태 안내 -->
+        <div class="feed-empty-state" id="feedEmptyState" style="display: none;">
+          <div class="empty-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="12" y1="18" x2="12" y2="12"/>
+              <line x1="9" y1="15" x2="15" y2="15"/>
+            </svg>
+          </div>
+          <div class="empty-title">등록된 모임 결과 보고서가 없습니다</div>
+          <div class="empty-desc">선정된 커뮤니티는 최소 3회의 모임 결과를 작성해야 합니다. 지금 새 보고서를 작성해보세요!</div>
+          <button type="button" class="btn-new-report" id="btnEmptyCreate">
+            + 새 모임 결과 보고서 작성하기
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. [작성/수정 화면] 모임 결과 보고서 작성 폼 뷰 -->
+      <div id="viewPostWrite" style="display: none;">
+        <button type="button" class="btn-back-to-list" id="btnBackToList">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+          보고서 목록으로 돌아가기
+        </button>
+
+        <div class="form-card">
+
+          <!-- 폼 상단 헤더 및 액션 버튼 -->
+          <div class="form-header">
+            <div class="form-title-wrap">
+              <h1 id="formMainTitle">모임 결과 보고서 작성</h1>
+              <p id="formSubTitle">연구 모임의 주요 내용과 결과를 공유해주세요.</p>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-outline" id="btnCancelEdit" style="display: none; color: #dc2626; border-color: #fca5a5; background: #fff5f5;">수정 취소</button>
+              <button type="button" class="btn btn-outline" id="btnDraftSave">임시저장</button>
+              <button type="button" class="btn btn-outline" id="btnPreview">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                미리보기
+              </button>
+              <button type="button" class="btn btn-primary" id="btnPublish">게시하기</button>
+            </div>
+          </div>
+
+          <!-- 보고서 입력 양식 폼 -->
+          <form class="report-form" id="reportForm" onsubmit="return false;">
           
           <!-- Row 1: 제목 & 모임 일시 -->
           <div class="form-row">
@@ -386,6 +495,7 @@
           </div>
 
         </form>
+        </div>
       </div>
     </main>
   </div>

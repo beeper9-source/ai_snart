@@ -17,14 +17,43 @@ const state = {
   keywords: ["AI동화", "결과공유"],
   attachedFiles: [],
   isLoading: false,
-  editingReportId: null // 수정 모드일 때 해당 보고서 ID
+  editingReportId: null, // 수정 모드일 때 해당 보고서 ID
+  currentView: 'list', // 'list' | 'write'
+  currentFilterRound: 'all' // 'all' | '1' | '2' | '3' | '4'
 };
 
 // DOM 요소 캐시
 const el = {
+  // 상단 커뮤니티 헤더 카드
+  communityHeaderCard: document.getElementById("communityHeaderCard"),
+  commHeaderAvatar: document.getElementById("commHeaderAvatar"),
+  commHeaderTitle: document.getElementById("commHeaderTitle"),
+  commHeaderType: document.getElementById("commHeaderType"),
+  commHeaderProject: document.getElementById("commHeaderProject"),
+  btnDemoFillHeader: document.getElementById("btnDemoFillHeader"),
+  btnOpenWrite: document.getElementById("btnOpenWrite"),
+
+  // 뷰 탭 & 전환
+  viewTabsBar: document.getElementById("viewTabsBar"),
+  tabBtnList: document.getElementById("tabBtnList"),
+  tabBtnWrite: document.getElementById("tabBtnWrite"),
+  tabReportCount: document.getElementById("tabReportCount"),
+
+  // 1. 게시글 목록 피드 뷰
+  viewPostList: document.getElementById("viewPostList"),
+  roundFilterGroup: document.getElementById("roundFilterGroup"),
+  filteredPostCount: document.getElementById("filteredPostCount"),
+  feedPostsWrap: document.getElementById("feedPostsWrap"),
+  feedEmptyState: document.getElementById("feedEmptyState"),
+  btnEmptyCreate: document.getElementById("btnEmptyCreate"),
+
+  // 2. 작성/수정 폼 뷰
+  viewPostWrite: document.getElementById("viewPostWrite"),
+  btnBackToList: document.getElementById("btnBackToList"),
   formMainTitle: document.getElementById("formMainTitle"),
   formSubTitle: document.getElementById("formSubTitle"),
   btnCancelEdit: document.getElementById("btnCancelEdit"),
+
   channelList: document.getElementById("channelList"),
   communitySelect: document.getElementById("communitySelect"),
   bannerCommunityName: document.getElementById("bannerCommunityName"),
@@ -253,7 +282,7 @@ function populateCommunitySelect() {
   });
 }
 
-// 5. 커뮤니티 선택 시 배너/스테퍼 및 임시저장 로드
+// 5. 커뮤니티 선택 시 헤더/배너/스테퍼 및 피드 갱신
 async function selectCommunity(commId) {
   state.activeCommunityId = Number(commId);
 
@@ -263,7 +292,7 @@ async function selectCommunity(commId) {
   });
 
   // 셀렉트박스 동기화
-  if (el.communitySelect.value != state.activeCommunityId) {
+  if (el.communitySelect && el.communitySelect.value != state.activeCommunityId) {
     el.communitySelect.value = state.activeCommunityId;
   }
 
@@ -274,7 +303,13 @@ async function selectCommunity(commId) {
   const nextRound = Math.min(count + 1, 3);
   setMeetingRound(nextRound);
 
-  // 상단 배너 텍스트 갱신
+  // 상단 커뮤니티 헤더 카드 갱신
+  if (el.commHeaderAvatar) el.commHeaderAvatar.innerHTML = getIconSvg(comm.icon_type);
+  if (el.commHeaderTitle) el.commHeaderTitle.textContent = `${comm.num} ${comm.name}`;
+  if (el.commHeaderType) el.commHeaderType.textContent = comm.type;
+  if (el.commHeaderProject) el.commHeaderProject.textContent = `${comm.project} (대표자: ${comm.representative})`;
+
+  // 배너 텍스트 갱신
   if (el.bannerCommunityName) {
     el.bannerCommunityName.textContent = `[${comm.num} ${comm.name}] 모임 진행 현황: ${count}/3회 완료 (최소 3회 의무)`;
   }
@@ -284,8 +319,184 @@ async function selectCommunity(commId) {
 
   updateStepper(count, state.selectedRound);
 
+  // 우측 게시글 피드 렌더링
+  renderPostFeed();
+
   // 커뮤니티 변경 시 해당 커뮤니티의 Supabase 드래프트 확인
   await loadDraftFromSupabase(state.activeCommunityId);
+}
+
+// 뷰 전환 함수 (목록 뷰 <-> 작성/수정 폼 뷰)
+function switchView(viewName) {
+  state.currentView = viewName;
+
+  if (viewName === 'write') {
+    if (el.viewPostList) el.viewPostList.style.display = 'none';
+    if (el.viewPostWrite) el.viewPostWrite.style.display = 'block';
+    if (el.tabBtnList) el.tabBtnList.classList.remove('active');
+    if (el.tabBtnWrite) el.tabBtnWrite.classList.add('active');
+    const formCard = document.querySelector('.form-card');
+    if (formCard) formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    if (el.viewPostList) el.viewPostList.style.display = 'flex';
+    if (el.viewPostWrite) el.viewPostWrite.style.display = 'none';
+    if (el.tabBtnList) el.tabBtnList.classList.add('active');
+    if (el.tabBtnWrite) el.tabBtnWrite.classList.remove('active');
+    renderPostFeed();
+  }
+}
+
+// 우측 게시글 목록 피드 렌더링
+function renderPostFeed() {
+  if (!el.feedPostsWrap) return;
+
+  const commReports = state.reports.filter(r => r.community_id === state.activeCommunityId);
+
+  if (el.tabReportCount) {
+    el.tabReportCount.textContent = commReports.length;
+  }
+
+  // 회차 필터링
+  let displayReports = commReports;
+  if (state.currentFilterRound !== 'all') {
+    const roundNum = Number(state.currentFilterRound);
+    if (roundNum === 4) {
+      displayReports = commReports.filter(r => r.meeting_round >= 4);
+    } else {
+      displayReports = commReports.filter(r => r.meeting_round === roundNum);
+    }
+  }
+
+  if (el.filteredPostCount) {
+    el.filteredPostCount.textContent = displayReports.length;
+  }
+
+  if (displayReports.length === 0) {
+    el.feedPostsWrap.style.display = "none";
+    if (el.feedEmptyState) el.feedEmptyState.style.display = "flex";
+    return;
+  }
+
+  el.feedPostsWrap.style.display = "flex";
+  if (el.feedEmptyState) el.feedEmptyState.style.display = "none";
+  el.feedPostsWrap.innerHTML = "";
+
+  displayReports.forEach(rep => {
+    const card = document.createElement("article");
+    card.className = "post-card";
+    card.id = `post-${rep.id}`;
+
+    const dateStr = rep.meeting_date ? rep.meeting_date.replace("T", " ") : "일시 미기재";
+    const attendeesList = Array.isArray(rep.attendees) ? rep.attendees : [];
+    const keywordsList = Array.isArray(rep.keywords) ? rep.keywords : [];
+    const filesList = Array.isArray(rep.files) ? rep.files : [];
+
+    const isObligatoryDone = rep.meeting_round === 3;
+    const roundBadgeText = isObligatoryDone 
+      ? `3회차 모임 (최소 의무 완료 🎉)` 
+      : `${rep.meeting_round}회차 모임`;
+
+    // 사진 갤러리 렌더링
+    const photosHtml = filesList.length > 0
+      ? `<div class="post-gallery">${filesList.map(f => {
+          const src = f.storageUrl || f.dataUrl;
+          return `<img src="${src}" alt="${f.name}" class="post-photo-thumb" title="${f.name} (클릭하여 확대)" onclick="openLightbox('${src}', '${f.name}')">`;
+        }).join("")}</div>`
+      : "";
+
+    // 참석자 태그
+    const attendeesChips = attendeesList.length > 0
+      ? attendeesList.map(a => `<span class="tag-chip" style="font-size:0.75rem; padding:2px 8px;">${a}</span>`).join(" ")
+      : "<span style='color:#94a3b8;'>참석자 없음</span>";
+
+    // 키워드 태그
+    const keywordsChips = keywordsList.length > 0
+      ? keywordsList.map(k => `<span class="tag-chip" style="font-size:0.75rem; padding:2px 8px; background:#f1f5f9; color:#475569; border-color:#e2e8f0;">#${k}</span>`).join(" ")
+      : "";
+
+    card.innerHTML = `
+      <div class="post-card-header">
+        <div>
+          <div class="post-badge-row">
+            <span class="post-round-badge ${isObligatoryDone ? 'obligatory-done' : ''}">${roundBadgeText}</span>
+            <span class="post-comm-tag">${rep.community_name}</span>
+          </div>
+          <h2 class="post-title">${rep.title}</h2>
+        </div>
+        <div class="post-actions">
+          <button type="button" class="btn-card-action btn-card-edit" data-edit="${rep.id}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            수정
+          </button>
+          <button type="button" class="btn-card-action btn-card-del" data-del="${rep.id}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            삭제
+          </button>
+        </div>
+      </div>
+
+      <div class="post-meta-bar">
+        <div class="meta-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>${dateStr}</span>
+        </div>
+        <div class="meta-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>${rep.location || '장소 미기재'}</span>
+        </div>
+        <div class="meta-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          <div style="display:inline-flex; gap:4px; flex-wrap:wrap;">${attendeesChips}</div>
+        </div>
+      </div>
+
+      <div class="post-content-snippet">
+        ${rep.content}
+      </div>
+
+      ${photosHtml}
+
+      <div class="post-footer">
+        <div class="post-keywords">
+          ${keywordsChips}
+        </div>
+        <div class="post-date-posted">
+          등록: ${rep.created_at ? new Date(rep.created_at).toLocaleDateString('ko-KR') : ''}
+        </div>
+      </div>
+    `;
+
+    // 수정 버튼 클릭 -> 폼으로 이동
+    card.querySelector(`[data-edit="${rep.id}"]`).addEventListener("click", () => {
+      startEditReport(rep.id);
+    });
+
+    // 삭제 버튼 클릭 -> Supabase 삭제
+    card.querySelector(`[data-del="${rep.id}"]`).addEventListener("click", async () => {
+      if (confirm(`'${rep.title}' 보고서를 Supabase에서 영구 삭제하시겠습니까?`)) {
+        try {
+          const { error } = await state.supabase
+            .from('ai_community_reports')
+            .delete()
+            .eq('id', rep.id);
+
+          if (error) throw error;
+          showToast("보고서가 Supabase에서 삭제되었습니다.", "info");
+          await loadAllDataFromSupabase();
+        } catch (err) {
+          showToast("삭제 실패: " + err.message, "warn");
+        }
+      }
+    });
+
+    el.feedPostsWrap.appendChild(card);
+  });
 }
 
 // 6. 모임 회차 선택 및 스테퍼 상태 갱신
@@ -773,6 +984,7 @@ async function publishReport() {
 
     // 최신 데이터 다시 로드
     await loadAllDataFromSupabase();
+    switchView('list');
 
   } catch (err) {
     console.error("[Supabase Publish Error]", err);
@@ -802,6 +1014,9 @@ function startEditReport(reportId) {
   }
   el.btnPublish.textContent = "수정 완료 (저장)";
   if (el.btnCancelEdit) el.btnCancelEdit.style.display = "inline-flex";
+
+  // 작성/수정 폼 뷰로 전환
+  switchView('write');
 
   // 데이터 폼에 채우기
   selectCommunity(rep.community_id);
@@ -856,6 +1071,7 @@ function cancelEditReport() {
   updateCharCount();
 
   showToast("수정 모드가 취소되었습니다.", "info");
+  switchView('list');
 }
 
 // 14. 미리보기 모달
@@ -1172,6 +1388,50 @@ function setupEventListeners() {
   // 수정 취소
   if (el.btnCancelEdit) {
     el.btnCancelEdit.addEventListener("click", cancelEditReport);
+  }
+
+  // 뷰 전환 (목록 피드 <-> 작성 폼)
+  if (el.tabBtnList) {
+    el.tabBtnList.addEventListener("click", () => switchView('list'));
+  }
+  if (el.tabBtnWrite) {
+    el.tabBtnWrite.addEventListener("click", () => {
+      cancelEditReport(); // 신규 작성 모드로 열기
+      switchView('write');
+    });
+  }
+  if (el.btnOpenWrite) {
+    el.btnOpenWrite.addEventListener("click", () => {
+      cancelEditReport();
+      switchView('write');
+    });
+  }
+  if (el.btnEmptyCreate) {
+    el.btnEmptyCreate.addEventListener("click", () => {
+      cancelEditReport();
+      switchView('write');
+    });
+  }
+  if (el.btnBackToList) {
+    el.btnBackToList.addEventListener("click", () => switchView('list'));
+  }
+  if (el.btnDemoFillHeader) {
+    el.btnDemoFillHeader.addEventListener("click", () => {
+      switchView('write');
+      fillDemoData();
+    });
+  }
+
+  // 회차 필터 버튼 (전체 / 1회차 / 2회차 / 3회차 / 4회차+)
+  if (el.roundFilterGroup) {
+    el.roundFilterGroup.querySelectorAll(".round-filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        el.roundFilterGroup.querySelectorAll(".round-filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        state.currentFilterRound = btn.dataset.filter;
+        renderPostFeed();
+      });
+    });
   }
 
   // 사진 확대 라이트박스 닫기
