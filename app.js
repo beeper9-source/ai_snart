@@ -1685,11 +1685,11 @@ async function downloadReportPDF(rep) {
 
     const logoSrc = window.SNART_LOGO_BASE64 || "logo.png";
 
-    // 2) A4 서식 제2호 공식 결과 보고서 HTML 구성
+    // 2) A4 서식 제2호 공식 결과 보고서 HTML 구성 (width: 100%로 PDF 페이지 규격에 자연스럽게 맞춤)
     const reportHtml = `
-      <div style="width: 750px; margin: 0 auto; background: #ffffff; color: #111827; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px 28px; box-sizing: border-box; line-height: 1.6;">
+      <div style="width: 100%; box-sizing: border-box; background: #ffffff; color: #111827; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px 24px; line-height: 1.6;">
         <!-- 상단 공식 기관 헤더 -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #ea580c; padding-bottom: 12px; margin-bottom: 22px; page-break-inside: avoid;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #ea580c; padding-bottom: 12px; margin-bottom: 20px; page-break-inside: avoid;">
           <div style="display: flex; align-items: center; gap: 10px;">
             <img src="${logoSrc}" style="height: 36px; width: auto; object-fit: contain; display: inline-block;">
             <span style="font-size: 14px; color: #4b5563; font-weight: 700;">2026 AI 커뮤니티 활동지원 사업</span>
@@ -1698,8 +1698,8 @@ async function downloadReportPDF(rep) {
         </div>
 
         <!-- 문서 메인 제목 -->
-        <div style="text-align: center; margin: 24px 0 28px 0; page-break-inside: avoid;">
-          <h1 style="font-size: 23px; font-weight: 800; color: #111827; letter-spacing: -0.5px; margin: 0 0 8px 0;">
+        <div style="text-align: center; margin: 20px 0 24px 0; page-break-inside: avoid;">
+          <h1 style="font-size: 22px; font-weight: 800; color: #111827; letter-spacing: -0.5px; margin: 0 0 8px 0;">
             AI 커뮤니티 모임 결과 보고서 (${roundNum}회차)
           </h1>
           <p style="font-size: 15px; color: #4b5563; margin: 0; font-weight: 600;">
@@ -1708,7 +1708,7 @@ async function downloadReportPDF(rep) {
         </div>
 
         <!-- 1. 기본 개요 테이블 -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px; page-break-inside: avoid;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 22px; font-size: 13px; page-break-inside: avoid;">
           <tr>
             <th style="width: 18%; background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">커뮤니티명</th>
             <td style="width: 32%; border: 1px solid #d1d5db; padding: 9px 12px; color: #111827; font-weight: 700;">${commName} <span style="font-weight:normal; font-size:12px; color:#4b5563;">(${commType})</span></td>
@@ -1740,11 +1740,11 @@ async function downloadReportPDF(rep) {
         </table>
 
         <!-- 2. 모임 활동 및 결과 본문 -->
-        <div style="margin-bottom: 24px;">
+        <div style="margin-bottom: 22px;">
           <h3 style="font-size: 15px; font-weight: 700; color: #111827; border-left: 4px solid #ea580c; padding-left: 8px; margin: 0 0 10px 0;">
             모임 활동 및 연구 결과 내용
           </h3>
-          <div style="border: 1px solid #d1d5db; border-radius: 4px; padding: 18px 20px; background: #fafafa; font-size: 13.5px; line-height: 1.8; min-height: 140px;">
+          <div style="border: 1px solid #d1d5db; border-radius: 4px; padding: 16px 18px; background: #fafafa; font-size: 13px; line-height: 1.8; min-height: 120px;">
             ${rep.content || '<p style="color:#9ca3af">작성된 내용이 없습니다.</p>'}
           </div>
         </div>
@@ -1753,25 +1753,25 @@ async function downloadReportPDF(rep) {
         ${photosHtml}
 
         <!-- 4. 하단 공식 제출 및 서명 박스 -->
-        <div style="margin-top: 36px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px; page-break-inside: avoid;">
-          <p style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 10px;">
+        <div style="margin-top: 32px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 20px; page-break-inside: avoid;">
+          <p style="font-size: 13.5px; font-weight: 600; color: #374151; margin-bottom: 10px;">
             위와 같이 2026년 AI 커뮤니티 활동지원 정기 모임 결과 보고서를 제출합니다.
           </p>
-          <p style="font-size: 13px; color: #6b7280; margin-bottom: 20px;">
+          <p style="font-size: 12.5px; color: #6b7280; margin-bottom: 18px;">
             ${submitDateStr}
           </p>
-          <div style="display: flex; justify-content: center; align-items: center; gap: 30px; font-size: 14px; font-weight: 700; color: #111827;">
+          <div style="display: flex; justify-content: center; align-items: center; gap: 30px; font-size: 13.5px; font-weight: 700; color: #111827;">
             <span>제출자 : <b>${commName}</b> 대표 <b>${commRepresentative}</b></span>
             <span style="border: 1px solid #9ca3af; padding: 3px 12px; border-radius: 4px; font-size: 12px; color: #6b7280; font-weight: normal;">(서명 또는 인)</span>
           </div>
-          <div style="margin-top: 26px; font-size: 17px; font-weight: 800; color: #ea580c; letter-spacing: 2px;">
+          <div style="margin-top: 24px; font-size: 16px; font-weight: 800; color: #ea580c; letter-spacing: 2px;">
             성 남 미 디 어 센 터 귀 하
           </div>
         </div>
       </div>
     `;
 
-    // 3) html2pdf를 통해 A4 PDF 직접 생성 및 다운로드 (HTML 문자열을 직접 전달하여 오프스크린 좌표 버그 원천 제거)
+    // 3) html2pdf를 통해 A4 PDF 직접 생성 및 다운로드
     if (typeof window.html2pdf !== 'undefined') {
       const opt = {
         margin: [10, 10, 10, 10],
@@ -1781,8 +1781,7 @@ async function downloadReportPDF(rep) {
           scale: 2,
           useCORS: true,
           scrollX: 0,
-          scrollY: 0,
-          windowWidth: 794
+          scrollY: 0
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
