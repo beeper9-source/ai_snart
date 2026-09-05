@@ -1589,7 +1589,27 @@ function getFormDataAsReport() {
   };
 }
 
-// 15-3. 공식 서식 A4 보고서 PDF 다운로드 기능
+// 15-3. 외부 이미지 URL을 안전하게 base64 Data URL로 변환하는 헬퍼 함수
+async function fetchImageAsBase64(url) {
+  if (!url) return "";
+  if (url.startsWith("data:")) return url;
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) return url;
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(url);
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.warn("fetchImageAsBase64 fallback for:", url, e);
+    return url;
+  }
+}
+
+// 15-4. 공식 서식 A4 보고서 PDF 다운로드 기능
 async function downloadReportPDF(rep) {
   if (!rep) return;
 
@@ -1609,158 +1629,176 @@ async function downloadReportPDF(rep) {
     day: 'numeric'
   });
 
-  showToast(`[${commName}] ${roundNum}회차 보고서 PDF 생성 중...`, "info");
-
-  // 사진 갤러리 HTML
-  const photosHtml = filesList.length > 0
-    ? `
-      <div style="margin-top: 20px; page-break-inside: avoid;">
-        <h3 style="font-size: 15px; font-weight: 700; color: #111827; border-left: 4px solid #ea580c; padding-left: 8px; margin: 0 0 10px 0;">
-          모임 현장 사진 (${filesList.length}건)
-        </h3>
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-          ${filesList.map(f => {
-            const src = f.storageUrl || f.dataUrl;
-            return `
-              <div style="border: 1px solid #d1d5db; border-radius: 4px; overflow: hidden; background: #ffffff; text-align: center; padding: 6px;">
-                <img src="${src}" crossorigin="anonymous" style="width: 100%; height: 160px; object-fit: cover; border-radius: 2px; display: block;">
-                <div style="font-size: 11px; color: #6b7280; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${f.name}</div>
-              </div>
-            `;
-          }).join("")}
-        </div>
-      </div>
-    `
-    : "";
-
-  // PDF용 임시 렌더링 컨테이너 생성
-  const pdfWrapper = document.createElement("div");
-  pdfWrapper.style.position = "fixed";
-  pdfWrapper.style.left = "-9999px";
-  pdfWrapper.style.top = "0";
-  pdfWrapper.style.width = "794px"; // A4 가로 픽셀 비율 (~210mm at 96dpi)
-  pdfWrapper.style.background = "#ffffff";
-  pdfWrapper.style.color = "#111827";
-  pdfWrapper.style.fontFamily = "'Pretendard', -apple-system, sans-serif";
-  pdfWrapper.style.padding = "36px 40px";
-  pdfWrapper.style.boxSizing = "border-box";
-  pdfWrapper.style.zIndex = "-1000";
-
-  pdfWrapper.innerHTML = `
-    <!-- 상단 공식 기관 헤더 -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #ea580c; padding-bottom: 12px; margin-bottom: 22px;">
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <img src="logo.png" style="height: 36px; width: auto; object-fit: contain;">
-        <span style="font-size: 14px; color: #4b5563; font-weight: 700;">2026 AI 커뮤니티 활동지원 사업</span>
-      </div>
-      <div style="font-size: 12px; color: #9ca3af; font-weight: 600;">서식 제2호 [모임 결과 보고서]</div>
-    </div>
-
-    <!-- 문서 메인 제목 -->
-    <div style="text-align: center; margin: 26px 0 30px 0;">
-      <h1 style="font-size: 24px; font-weight: 800; color: #111827; letter-spacing: -0.5px; margin: 0 0 8px 0;">
-        AI 커뮤니티 모임 결과 보고서 (${roundNum}회차)
-      </h1>
-      <p style="font-size: 15px; color: #4b5563; margin: 0; font-weight: 600;">
-        [${commName}] - ${rep.title}
-      </p>
-    </div>
-
-    <!-- 1. 기본 개요 테이블 -->
-    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px;">
-      <tr>
-        <th style="width: 18%; background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">커뮤니티명</th>
-        <td style="width: 32%; border: 1px solid #d1d5db; padding: 9px 12px; color: #111827; font-weight: 700;">${commName} <span style="font-weight:normal; font-size:12px; color:#4b5563;">(${commType})</span></td>
-        <th style="width: 18%; background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">대 표 자</th>
-        <td style="width: 32%; border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${commRepresentative}</td>
-      </tr>
-      <tr>
-        <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">지원 프로젝트</th>
-        <td colspan="3" style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${commProject}</td>
-      </tr>
-      <tr>
-        <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">모임 일시</th>
-        <td style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${dateStr}</td>
-        <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">모임 장소</th>
-        <td style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${rep.location || '장소 미기재'}</td>
-      </tr>
-      <tr>
-        <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">참석자 (${attendeesList.length}명)</th>
-        <td colspan="3" style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">
-          ${attendeesList.join(', ') || '참석자 없음'}
-        </td>
-      </tr>
-      <tr>
-        <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">관련 키워드</th>
-        <td colspan="3" style="border: 1px solid #d1d5db; padding: 9px 12px; color: #2563eb; font-weight: 600;">
-          ${keywordsList.map(k => '#' + k).join(' ') || '키워드 없음'}
-        </td>
-      </tr>
-    </table>
-
-    <!-- 2. 모임 활동 및 결과 본문 -->
-    <div style="margin-bottom: 24px;">
-      <h3 style="font-size: 15px; font-weight: 700; color: #111827; border-left: 4px solid #ea580c; padding-left: 8px; margin: 0 0 10px 0;">
-        모임 활동 및 연구 결과 내용
-      </h3>
-      <div style="border: 1px solid #d1d5db; border-radius: 4px; padding: 18px 20px; background: #fafafa; font-size: 13.5px; line-height: 1.8; min-height: 140px;">
-        ${rep.content || '<p style="color:#9ca3af">작성된 내용이 없습니다.</p>'}
-      </div>
-    </div>
-
-    <!-- 3. 현장 사진 -->
-    ${photosHtml}
-
-    <!-- 4. 하단 공식 제출 및 서명 박스 -->
-    <div style="margin-top: 36px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px; page-break-inside: avoid;">
-      <p style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 12px;">
-        위와 같이 2026년 AI 커뮤니티 활동지원 정기 모임 결과 보고서를 제출합니다.
-      </p>
-      <p style="font-size: 13px; color: #6b7280; margin-bottom: 22px;">
-        ${submitDateStr}
-      </p>
-      <div style="display: flex; justify-content: center; align-items: center; gap: 30px; font-size: 14px; font-weight: 700; color: #111827;">
-        <span>제출자 : <b>${commName}</b> 대표 <b>${commRepresentative}</b></span>
-        <span style="border: 1px solid #9ca3af; padding: 3px 12px; border-radius: 4px; font-size: 12px; color: #6b7280; font-weight: normal;">(서명 또는 인)</span>
-      </div>
-      <div style="margin-top: 28px; font-size: 17px; font-weight: 800; color: #ea580c; letter-spacing: 2px;">
-        성 남 미 디 어 센 터 귀 하
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(pdfWrapper);
-
   const cleanCommName = commName.replace(/[\/\\?%*:|"<>]/g, '_');
   const fileName = `[${cleanCommName}]_${roundNum}회차_모임결과보고서.pdf`;
 
-  if (typeof window.html2pdf !== 'undefined') {
-    const opt = {
-      margin: [10, 10, 10, 10],
-      filename: fileName,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, 
-        logging: false,
-        letterRendering: true
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
+  // 생성 중 안내 로딩 오버레이
+  const overlay = document.createElement("div");
+  overlay.id = "pdfGenerationOverlay";
+  overlay.style.cssText = `
+    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7);
+    z-index: 999999; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; color: #ffffff;
+    font-family: 'Pretendard', -apple-system, sans-serif;
+  `;
+  overlay.innerHTML = `
+    <div style="background: #ffffff; color: #111827; padding: 28px 36px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); text-align: center; max-width: 360px;">
+      <div style="width: 36px; height: 36px; border: 3px solid #f3f4f6; border-top-color: #ea580c; border-radius: 50%; animation: pdfSpin 0.8s linear infinite; margin: 0 auto 16px auto;"></div>
+      <div style="font-size: 16px; font-weight: 700; margin-bottom: 6px;">공식 서식 PDF 생성 중</div>
+      <div style="font-size: 13px; color: #6b7280; line-height: 1.5;">A4 규격 서식 제2호 문서로 변환하고 있습니다.<br>잠시만 기다려주세요...</div>
+    </div>
+    <style>
+      @keyframes pdfSpin { to { transform: rotate(360deg); } }
+    </style>
+  `;
+  document.body.appendChild(overlay);
 
-    try {
-      await window.html2pdf().set(opt).from(pdfWrapper).save();
-      showToast(`'${fileName}' 다운로드가 완료되었습니다!`, "success");
-    } catch (err) {
-      console.warn("html2pdf 저장 중 오류 발생, 인쇄 모드로 대체합니다:", err);
-      printFallback(pdfWrapper.innerHTML, fileName);
-    } finally {
-      pdfWrapper.remove();
+  try {
+    // 1) 첨부 사진 Base64 변환 (html2canvas CORS 및 렌더링 누락 방지)
+    const processedFiles = await Promise.all(filesList.map(async (f) => {
+      const originalSrc = f.storageUrl || f.dataUrl;
+      const b64 = await fetchImageAsBase64(originalSrc);
+      return {
+        name: f.name || "모임 현장 사진",
+        src: b64 || originalSrc
+      };
+    }));
+
+    // 사진 갤러리 HTML
+    const photosHtml = processedFiles.length > 0
+      ? `
+        <div style="margin-top: 24px; page-break-inside: avoid;">
+          <h3 style="font-size: 15px; font-weight: 700; color: #111827; border-left: 4px solid #ea580c; padding-left: 8px; margin: 0 0 12px 0;">
+            모임 현장 사진 (${processedFiles.length}건)
+          </h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+            ${processedFiles.map(f => `
+              <div style="border: 1px solid #d1d5db; border-radius: 4px; overflow: hidden; background: #ffffff; text-align: center; padding: 6px;">
+                <img src="${f.src}" style="width: 100%; height: 170px; object-fit: cover; border-radius: 2px; display: block;">
+                <div style="font-size: 11px; color: #6b7280; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${f.name}</div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `
+      : "";
+
+    const logoSrc = window.SNART_LOGO_BASE64 || "logo.png";
+
+    // 2) A4 서식 제2호 공식 결과 보고서 HTML 구성
+    const reportHtml = `
+      <div style="width: 750px; margin: 0 auto; background: #ffffff; color: #111827; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px 28px; box-sizing: border-box; line-height: 1.6;">
+        <!-- 상단 공식 기관 헤더 -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #ea580c; padding-bottom: 12px; margin-bottom: 22px; page-break-inside: avoid;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="${logoSrc}" style="height: 36px; width: auto; object-fit: contain; display: inline-block;">
+            <span style="font-size: 14px; color: #4b5563; font-weight: 700;">2026 AI 커뮤니티 활동지원 사업</span>
+          </div>
+          <div style="font-size: 12px; color: #9ca3af; font-weight: 600;">서식 제2호 [모임 결과 보고서]</div>
+        </div>
+
+        <!-- 문서 메인 제목 -->
+        <div style="text-align: center; margin: 24px 0 28px 0; page-break-inside: avoid;">
+          <h1 style="font-size: 23px; font-weight: 800; color: #111827; letter-spacing: -0.5px; margin: 0 0 8px 0;">
+            AI 커뮤니티 모임 결과 보고서 (${roundNum}회차)
+          </h1>
+          <p style="font-size: 15px; color: #4b5563; margin: 0; font-weight: 600;">
+            [${commName}] - ${rep.title || '모임 결과 보고'}
+          </p>
+        </div>
+
+        <!-- 1. 기본 개요 테이블 -->
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px; page-break-inside: avoid;">
+          <tr>
+            <th style="width: 18%; background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">커뮤니티명</th>
+            <td style="width: 32%; border: 1px solid #d1d5db; padding: 9px 12px; color: #111827; font-weight: 700;">${commName} <span style="font-weight:normal; font-size:12px; color:#4b5563;">(${commType})</span></td>
+            <th style="width: 18%; background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">대 표 자</th>
+            <td style="width: 32%; border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${commRepresentative}</td>
+          </tr>
+          <tr>
+            <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">지원 프로젝트</th>
+            <td colspan="3" style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${commProject}</td>
+          </tr>
+          <tr>
+            <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">모임 일시</th>
+            <td style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${dateStr}</td>
+            <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">모임 장소</th>
+            <td style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${rep.location || '장소 미기재'}</td>
+          </tr>
+          <tr>
+            <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">참석자 (${attendeesList.length}명)</th>
+            <td colspan="3" style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">
+              ${attendeesList.join(', ') || '참석자 없음'}
+            </td>
+          </tr>
+          <tr>
+            <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">관련 키워드</th>
+            <td colspan="3" style="border: 1px solid #d1d5db; padding: 9px 12px; color: #2563eb; font-weight: 600;">
+              ${keywordsList.map(k => '#' + k).join(' ') || '키워드 없음'}
+            </td>
+          </tr>
+        </table>
+
+        <!-- 2. 모임 활동 및 결과 본문 -->
+        <div style="margin-bottom: 24px;">
+          <h3 style="font-size: 15px; font-weight: 700; color: #111827; border-left: 4px solid #ea580c; padding-left: 8px; margin: 0 0 10px 0;">
+            모임 활동 및 연구 결과 내용
+          </h3>
+          <div style="border: 1px solid #d1d5db; border-radius: 4px; padding: 18px 20px; background: #fafafa; font-size: 13.5px; line-height: 1.8; min-height: 140px;">
+            ${rep.content || '<p style="color:#9ca3af">작성된 내용이 없습니다.</p>'}
+          </div>
+        </div>
+
+        <!-- 3. 현장 사진 -->
+        ${photosHtml}
+
+        <!-- 4. 하단 공식 제출 및 서명 박스 -->
+        <div style="margin-top: 36px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px; page-break-inside: avoid;">
+          <p style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 10px;">
+            위와 같이 2026년 AI 커뮤니티 활동지원 정기 모임 결과 보고서를 제출합니다.
+          </p>
+          <p style="font-size: 13px; color: #6b7280; margin-bottom: 20px;">
+            ${submitDateStr}
+          </p>
+          <div style="display: flex; justify-content: center; align-items: center; gap: 30px; font-size: 14px; font-weight: 700; color: #111827;">
+            <span>제출자 : <b>${commName}</b> 대표 <b>${commRepresentative}</b></span>
+            <span style="border: 1px solid #9ca3af; padding: 3px 12px; border-radius: 4px; font-size: 12px; color: #6b7280; font-weight: normal;">(서명 또는 인)</span>
+          </div>
+          <div style="margin-top: 26px; font-size: 17px; font-weight: 800; color: #ea580c; letter-spacing: 2px;">
+            성 남 미 디 어 센 터 귀 하
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 3) html2pdf를 통해 A4 PDF 직접 생성 및 다운로드 (HTML 문자열을 직접 전달하여 오프스크린 좌표 버그 원천 제거)
+    if (typeof window.html2pdf !== 'undefined') {
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: 794
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+      };
+
+      await window.html2pdf().set(opt).from(reportHtml).save();
+      showToast(`'${fileName}' PDF 다운로드가 완료되었습니다!`, "success");
+    } else {
+      printFallback(reportHtml, fileName);
     }
-  } else {
-    // CDN 미로드 시 브라우저 인쇄(PDF 저장) 창으로 대체
-    printFallback(pdfWrapper.innerHTML, fileName);
-    pdfWrapper.remove();
+  } catch (err) {
+    console.error("PDF 생성 중 오류 발생:", err);
+    showToast("PDF 자동 생성 중 문제가 발생하여 인쇄 창으로 전환합니다.", "warn");
+    printFallback(reportHtml, fileName);
+  } finally {
+    overlay.remove();
   }
 }
 
@@ -1768,7 +1806,7 @@ async function downloadReportPDF(rep) {
 function printFallback(htmlContent, title) {
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
-    showToast("브라우저 팝업이 차단되었습니다. 팝업을 허용해주세요.", "warn");
+    showToast("브라우저 팝업이 차단되었습니다. 상단 주소창에서 팝업을 허용해주세요.", "warn");
     return;
   }
   printWindow.document.open();
@@ -1779,10 +1817,10 @@ function printFallback(htmlContent, title) {
       <meta charset="UTF-8">
       <title>${title}</title>
       <style>
-        body { margin: 0; padding: 24px; font-family: 'Pretendard', sans-serif; background: #fff; }
+        body { margin: 0; padding: 24px; font-family: 'Pretendard', -apple-system, sans-serif; background: #fff; }
         @media print {
           body { padding: 0; }
-          @page { size: A4; margin: 12mm; }
+          @page { size: A4; margin: 10mm; }
         }
       </style>
     </head>
@@ -1790,9 +1828,11 @@ function printFallback(htmlContent, title) {
       ${htmlContent}
       <script>
         window.onload = function() {
-          window.print();
+          setTimeout(function() {
+            window.print();
+          }, 300);
         };
-      </script>
+      <\/script>
     </body>
     </html>
   `);
