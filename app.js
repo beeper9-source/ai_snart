@@ -99,6 +99,7 @@ const el = {
   btnClosePreview: document.getElementById("btnClosePreview"),
   btnClosePreviewFooter: document.getElementById("btnClosePreviewFooter"),
   btnPublishFromPreview: document.getElementById("btnPublishFromPreview"),
+  btnDownloadPreviewPdf: document.getElementById("btnDownloadPreviewPdf"),
   archiveModal: document.getElementById("archiveModal"),
   archiveListContainer: document.getElementById("archiveListContainer"),
   btnCloseArchive: document.getElementById("btnCloseArchive"),
@@ -545,6 +546,16 @@ function renderPostFeed() {
           <h2 class="post-title">${rep.title}</h2>
         </div>
         <div class="post-actions">
+          <button type="button" class="btn-card-action btn-card-pdf" data-pdf="${rep.id}" title="공식 서식 PDF 다운로드">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            PDF
+          </button>
           <button type="button" class="btn-card-action btn-card-edit" data-edit="${rep.id}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 20h9"/>
@@ -628,6 +639,11 @@ function renderPostFeed() {
         </div>
       </div>
     `;
+
+    // PDF 다운로드 버튼 클릭
+    card.querySelector(`[data-pdf="${rep.id}"]`).addEventListener("click", () => {
+      downloadReportPDF(rep);
+    });
 
     // 수정 버튼 클릭 -> 폼으로 이동
     card.querySelector(`[data-edit="${rep.id}"]`).addEventListener("click", () => {
@@ -1413,6 +1429,7 @@ function renderArchiveList() {
           <span style="font-weight:700; color:#2563eb; font-size:0.875rem;">${rep.community_name}</span>
         </div>
         <div style="display:flex; gap:6px;">
+          <button type="button" class="btn btn-outline" style="padding:4px 10px; font-size:0.75rem; color:#059669; border-color:#a7f3d0; background:#f0fdf4;" data-pdf="${rep.id}">PDF</button>
           <button type="button" class="btn btn-outline" style="padding:4px 10px; font-size:0.75rem; color:#2563eb; border-color:#93c5fd; background:#f0f7ff;" data-edit="${rep.id}">수정</button>
           <button type="button" class="btn btn-outline" style="padding:4px 10px; font-size:0.75rem; color:#ef4444; border-color:#fca5a5;" data-del="${rep.id}">삭제</button>
         </div>
@@ -1431,6 +1448,11 @@ function renderArchiveList() {
         ${keywordsList.map(k => `<span class="tag-chip" style="font-size:0.75rem; padding:2px 8px;">#${k}</span>`).join("")}
       </div>
     `;
+
+    // PDF 다운로드 버튼 클릭
+    card.querySelector(`[data-pdf="${rep.id}"]`).addEventListener("click", () => {
+      downloadReportPDF(rep);
+    });
 
     // 수정 버튼 클릭
     card.querySelector(`[data-edit="${rep.id}"]`).addEventListener("click", () => {
@@ -1546,6 +1568,235 @@ async function executeReportDelete() {
       el.btnConfirmDelete.textContent = "삭제 확인";
     }
   }
+}
+
+// 15-2. 현재 작성 폼의 입력 데이터를 보고서 객체 형식으로 추출 (미리보기 등에서 PDF 다운로드 시 활용)
+function getFormDataAsReport() {
+  const comm = state.communities.find(c => c.id === state.activeCommunityId) || {};
+  return {
+    id: state.editingReportId || 'draft',
+    community_id: state.activeCommunityId,
+    community_name: comm.name || "AI 커뮤니티",
+    meeting_round: state.selectedRound,
+    title: (el.reportTitle && el.reportTitle.value.trim()) || `${comm.name || '커뮤니티'} ${state.selectedRound}회차 모임 결과 보고서`,
+    meeting_date: (el.meetingDate && el.meetingDate.value) || "",
+    location: (el.meetingLocation && el.meetingLocation.value.trim()) || "장소 미기재",
+    attendees: Array.isArray(state.attendees) ? [...state.attendees] : [],
+    content: (el.editorContent && el.editorContent.innerHTML) || "",
+    keywords: Array.isArray(state.keywords) ? [...state.keywords] : [],
+    files: Array.isArray(state.attachedFiles) ? [...state.attachedFiles] : [],
+    created_at: new Date().toISOString()
+  };
+}
+
+// 15-3. 공식 서식 A4 보고서 PDF 다운로드 기능
+async function downloadReportPDF(rep) {
+  if (!rep) return;
+
+  const comm = state.communities.find(c => c.id === Number(rep.community_id)) || {};
+  const commName = rep.community_name || comm.name || "AI 커뮤니티";
+  const commRepresentative = comm.representative || (Array.isArray(rep.attendees) && rep.attendees[0]) || "대표자";
+  const commProject = comm.project || "AI 커뮤니티 활동지원 프로젝트";
+  const commType = comm.type || "활동";
+  const roundNum = rep.meeting_round || 1;
+  const dateStr = rep.meeting_date ? rep.meeting_date.replace("T", " ") : "일시 미기재";
+  const attendeesList = Array.isArray(rep.attendees) ? rep.attendees : [];
+  const keywordsList = Array.isArray(rep.keywords) ? rep.keywords : [];
+  const filesList = Array.isArray(rep.files) ? rep.files : [];
+  const submitDateStr = new Date(rep.created_at || Date.now()).toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  showToast(`[${commName}] ${roundNum}회차 보고서 PDF 생성 중...`, "info");
+
+  // 사진 갤러리 HTML
+  const photosHtml = filesList.length > 0
+    ? `
+      <div style="margin-top: 20px; page-break-inside: avoid;">
+        <h3 style="font-size: 15px; font-weight: 700; color: #111827; border-left: 4px solid #ea580c; padding-left: 8px; margin: 0 0 10px 0;">
+          모임 현장 사진 (${filesList.length}건)
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+          ${filesList.map(f => {
+            const src = f.storageUrl || f.dataUrl;
+            return `
+              <div style="border: 1px solid #d1d5db; border-radius: 4px; overflow: hidden; background: #ffffff; text-align: center; padding: 6px;">
+                <img src="${src}" crossorigin="anonymous" style="width: 100%; height: 160px; object-fit: cover; border-radius: 2px; display: block;">
+                <div style="font-size: 11px; color: #6b7280; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${f.name}</div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `
+    : "";
+
+  // PDF용 임시 렌더링 컨테이너 생성
+  const pdfWrapper = document.createElement("div");
+  pdfWrapper.style.position = "fixed";
+  pdfWrapper.style.left = "-9999px";
+  pdfWrapper.style.top = "0";
+  pdfWrapper.style.width = "794px"; // A4 가로 픽셀 비율 (~210mm at 96dpi)
+  pdfWrapper.style.background = "#ffffff";
+  pdfWrapper.style.color = "#111827";
+  pdfWrapper.style.fontFamily = "'Pretendard', -apple-system, sans-serif";
+  pdfWrapper.style.padding = "36px 40px";
+  pdfWrapper.style.boxSizing = "border-box";
+  pdfWrapper.style.zIndex = "-1000";
+
+  pdfWrapper.innerHTML = `
+    <!-- 상단 공식 기관 헤더 -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #ea580c; padding-bottom: 12px; margin-bottom: 22px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <img src="logo.png" style="height: 36px; width: auto; object-fit: contain;">
+        <span style="font-size: 14px; color: #4b5563; font-weight: 700;">2026 AI 커뮤니티 활동지원 사업</span>
+      </div>
+      <div style="font-size: 12px; color: #9ca3af; font-weight: 600;">서식 제2호 [모임 결과 보고서]</div>
+    </div>
+
+    <!-- 문서 메인 제목 -->
+    <div style="text-align: center; margin: 26px 0 30px 0;">
+      <h1 style="font-size: 24px; font-weight: 800; color: #111827; letter-spacing: -0.5px; margin: 0 0 8px 0;">
+        AI 커뮤니티 모임 결과 보고서 (${roundNum}회차)
+      </h1>
+      <p style="font-size: 15px; color: #4b5563; margin: 0; font-weight: 600;">
+        [${commName}] - ${rep.title}
+      </p>
+    </div>
+
+    <!-- 1. 기본 개요 테이블 -->
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px;">
+      <tr>
+        <th style="width: 18%; background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">커뮤니티명</th>
+        <td style="width: 32%; border: 1px solid #d1d5db; padding: 9px 12px; color: #111827; font-weight: 700;">${commName} <span style="font-weight:normal; font-size:12px; color:#4b5563;">(${commType})</span></td>
+        <th style="width: 18%; background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">대 표 자</th>
+        <td style="width: 32%; border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${commRepresentative}</td>
+      </tr>
+      <tr>
+        <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">지원 프로젝트</th>
+        <td colspan="3" style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${commProject}</td>
+      </tr>
+      <tr>
+        <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">모임 일시</th>
+        <td style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${dateStr}</td>
+        <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">모임 장소</th>
+        <td style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">${rep.location || '장소 미기재'}</td>
+      </tr>
+      <tr>
+        <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">참석자 (${attendeesList.length}명)</th>
+        <td colspan="3" style="border: 1px solid #d1d5db; padding: 9px 12px; color: #111827;">
+          ${attendeesList.join(', ') || '참석자 없음'}
+        </td>
+      </tr>
+      <tr>
+        <th style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 9px 10px; text-align: center; font-weight: 700; color: #374151;">관련 키워드</th>
+        <td colspan="3" style="border: 1px solid #d1d5db; padding: 9px 12px; color: #2563eb; font-weight: 600;">
+          ${keywordsList.map(k => '#' + k).join(' ') || '키워드 없음'}
+        </td>
+      </tr>
+    </table>
+
+    <!-- 2. 모임 활동 및 결과 본문 -->
+    <div style="margin-bottom: 24px;">
+      <h3 style="font-size: 15px; font-weight: 700; color: #111827; border-left: 4px solid #ea580c; padding-left: 8px; margin: 0 0 10px 0;">
+        모임 활동 및 연구 결과 내용
+      </h3>
+      <div style="border: 1px solid #d1d5db; border-radius: 4px; padding: 18px 20px; background: #fafafa; font-size: 13.5px; line-height: 1.8; min-height: 140px;">
+        ${rep.content || '<p style="color:#9ca3af">작성된 내용이 없습니다.</p>'}
+      </div>
+    </div>
+
+    <!-- 3. 현장 사진 -->
+    ${photosHtml}
+
+    <!-- 4. 하단 공식 제출 및 서명 박스 -->
+    <div style="margin-top: 36px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 24px; page-break-inside: avoid;">
+      <p style="font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 12px;">
+        위와 같이 2026년 AI 커뮤니티 활동지원 정기 모임 결과 보고서를 제출합니다.
+      </p>
+      <p style="font-size: 13px; color: #6b7280; margin-bottom: 22px;">
+        ${submitDateStr}
+      </p>
+      <div style="display: flex; justify-content: center; align-items: center; gap: 30px; font-size: 14px; font-weight: 700; color: #111827;">
+        <span>제출자 : <b>${commName}</b> 대표 <b>${commRepresentative}</b></span>
+        <span style="border: 1px solid #9ca3af; padding: 3px 12px; border-radius: 4px; font-size: 12px; color: #6b7280; font-weight: normal;">(서명 또는 인)</span>
+      </div>
+      <div style="margin-top: 28px; font-size: 17px; font-weight: 800; color: #ea580c; letter-spacing: 2px;">
+        성 남 미 디 어 센 터 귀 하
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(pdfWrapper);
+
+  const cleanCommName = commName.replace(/[\/\\?%*:|"<>]/g, '_');
+  const fileName = `[${cleanCommName}]_${roundNum}회차_모임결과보고서.pdf`;
+
+  if (typeof window.html2pdf !== 'undefined') {
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename: fileName,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        letterRendering: true
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+      await window.html2pdf().set(opt).from(pdfWrapper).save();
+      showToast(`'${fileName}' 다운로드가 완료되었습니다!`, "success");
+    } catch (err) {
+      console.warn("html2pdf 저장 중 오류 발생, 인쇄 모드로 대체합니다:", err);
+      printFallback(pdfWrapper.innerHTML, fileName);
+    } finally {
+      pdfWrapper.remove();
+    }
+  } else {
+    // CDN 미로드 시 브라우저 인쇄(PDF 저장) 창으로 대체
+    printFallback(pdfWrapper.innerHTML, fileName);
+    pdfWrapper.remove();
+  }
+}
+
+// 인쇄 창(PDF로 저장) 폴백 함수
+function printFallback(htmlContent, title) {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    showToast("브라우저 팝업이 차단되었습니다. 팝업을 허용해주세요.", "warn");
+    return;
+  }
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+      <meta charset="UTF-8">
+      <title>${title}</title>
+      <style>
+        body { margin: 0; padding: 24px; font-family: 'Pretendard', sans-serif; background: #fff; }
+        @media print {
+          body { padding: 0; }
+          @page { size: A4; margin: 12mm; }
+        }
+      </style>
+    </head>
+    <body>
+      ${htmlContent}
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
 }
 
 // 16. 예시 데이터 자동 입력 (데모 기능)
@@ -1678,6 +1929,11 @@ function setupEventListeners() {
     closePreviewModal();
     publishReport();
   });
+  if (el.btnDownloadPreviewPdf) {
+    el.btnDownloadPreviewPdf.addEventListener("click", () => {
+      downloadReportPDF(getFormDataAsReport());
+    });
+  }
 
   // 게시하기
   el.btnPublish.addEventListener("click", publishReport);
@@ -1783,6 +2039,7 @@ window.openLightbox = openLightbox;
 window.closeLightbox = closeLightbox;
 window.openDeleteModal = openDeleteModal;
 window.closeDeleteModal = closeDeleteModal;
+window.downloadReportPDF = downloadReportPDF;
 
 // 토스트 알림 함수
 function showToast(message, type = "info") {

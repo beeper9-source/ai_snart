@@ -739,6 +739,17 @@ body {
   background: #dbeafe;
 }
 
+.btn-card-pdf {
+  color: #059669;
+  border-color: #a7f3d0;
+  background: #f0fdf4;
+}
+
+.btn-card-pdf:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
 .btn-card-del {
   color: #dc2626;
   border-color: #fecdd3;
